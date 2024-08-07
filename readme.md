@@ -25,13 +25,16 @@ Accédez au répertoire du projet :
 ```sh
 
 cd hayes-auto-vision
+
+```
 Installez les dépendances :
 
 ```sh
 
-pip install -r requirements.txt
+pip install -r requirements.txt`
+```
 Créer un fichier setup.py :
-
+```sh
 python
 
 from cx_Freeze import setup, Executable
@@ -67,14 +70,19 @@ setup(
     version="0.1",
     description="Application de capture de plaques d'immatriculation pour Hayes Auto",
     options={"build_exe": build_exe_options},
-    executables=[Executable("votre_script.py", base=base)]
+    executables=[Executable("testcopygta.py", base=base)]
 )
+```
+
 Compilez l'application avec cx_Freeze :
 
 ```sh
 
 python setup.py build
+
+```
 Exécution de l'application
+
 Une fois la compilation terminée, exécutez le fichier exécutable généré pour lancer l'application.
 
 Configuration de Tesseract OCR
