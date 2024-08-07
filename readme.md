@@ -21,16 +21,19 @@ Hayes Auto Vision est une application dédiée à l'atelier Hayes Auto, offrant 
    ```sh
    git clone https://github.com/votre-utilisateur/hayes-auto-vision.git
 Accédez au répertoire du projet :
+
 sh
-Copier le code
+
 cd hayes-auto-vision
 Installez les dépendances :
+
 sh
-Copier le code
+
 pip install -r requirements.txt
 Créer un fichier setup.py :
+
 python
-Copier le code
+
 from cx_Freeze import setup, Executable
 import sys
 import os
@@ -68,19 +71,16 @@ setup(
 )
 Compilez l'application avec cx_Freeze :
 
+sh
+
 python setup.py build
-
 Exécution de l'application
-
 Une fois la compilation terminée, exécutez le fichier exécutable généré pour lancer l'application.
 
 Configuration de Tesseract OCR
-
-Assurez-vous que tesseract.exe et le dossier tessdata sont inclus dans le répertoire de build.
-L'application est configurée pour utiliser les chemins relatifs et inclut automatiquement Tesseract OCR.
+Assurez-vous que tesseract.exe et le dossier tessdata sont inclus dans le répertoire de build. L'application est configurée pour utiliser les chemins relatifs et inclut automatiquement Tesseract OCR.
 
 Contribution
-
 Les contributions sont les bienvenues ! Veuillez soumettre une pull request ou ouvrir une issue pour discuter des modifications que vous souhaitez apporter.
 
 Acknowledgements
