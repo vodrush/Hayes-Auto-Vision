@@ -22,12 +22,12 @@ Hayes Auto Vision est une application dédiée à l'atelier Hayes Auto, offrant 
    git clone https://github.com/votre-utilisateur/hayes-auto-vision.git
 Accédez au répertoire du projet :
 
-sh
+```sh
 
 cd hayes-auto-vision
 Installez les dépendances :
 
-sh
+```sh
 
 pip install -r requirements.txt
 Créer un fichier setup.py :
@@ -71,7 +71,7 @@ setup(
 )
 Compilez l'application avec cx_Freeze :
 
-sh
+```sh
 
 python setup.py build
 Exécution de l'application
