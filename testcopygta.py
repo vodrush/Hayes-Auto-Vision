@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import Toplevel
 import pytesseract
-from PIL import ImageGrab, Image, ImageTk
+from PIL import ImageGrab, Image, ImageTk, ImageEnhance
 import cv2
 import numpy as np
 import pygetwindow as gw
@@ -10,6 +10,8 @@ import os
 import sys
 import threading
 import time
+import requests
+from bs4 import BeautifulSoup
 
 # Fonction pour trouver l'exécutable Tesseract
 def find_tesseract():
@@ -29,6 +31,26 @@ pytesseract.pytesseract.tesseract_cmd = find_tesseract()
 # Expression régulière pour détecter les numéros de plaque (exactement 8 caractères)
 plate_pattern = re.compile(r'\b[A-Z0-9]{8}\b')
 
+# Fonction pour récupérer les modèles de voitures GTA V
+def get_gta_v_car_models():
+    url = "https://gta.fandom.com/wiki/Vehicles_in_GTA_V"
+    response = requests.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')
+    
+    car_models = set()
+    
+    for link in soup.find_all('a'):
+        if link.has_attr('href') and '/wiki/' in link['href']:
+            car_model = link.text.strip().lower()
+            if car_model and car_model.isalpha():
+                car_models.add(car_model)
+    
+    return list(car_models)
+
+# Liste des modèles de voitures valides
+valid_car_models = get_gta_v_car_models()
+valid_car_models.append('gt63')  # Ajout du modèle personnalisé
+
 class LicensePlateApp:
     def __init__(self, master):
         self.master = master
@@ -38,6 +60,7 @@ class LicensePlateApp:
         self.current_plate = None
         self.current_model = None
         self.current_name = None
+        self.unvalidated_models = []
 
         # Start capturing in a separate thread
         self.capture_thread = threading.Thread(target=self.capture_screen)
@@ -89,6 +112,13 @@ class LicensePlateApp:
         self.capture_label_name.grid(row=0, column=2, padx=5, pady=5)
         self.preview_label_name = tk.Label(self.preview_frame)
         self.preview_label_name.grid(row=1, column=2, padx=5, pady=5)
+
+        # Section pour les modèles non validés
+        self.unvalidated_frame = tk.LabelFrame(self.master, text="Modèles Non Validés", padx=10, pady=10)
+        self.unvalidated_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=10, sticky="nsew")
+
+        self.unvalidated_listbox = tk.Listbox(self.unvalidated_frame)
+        self.unvalidated_listbox.grid(row=0, column=0, padx=5, pady=5)
 
     def capture_screen(self):
         while True:
@@ -212,32 +242,40 @@ class LicensePlateApp:
             # Extraire le texte après les deux-points pour le modèle
             model_lines = [line.split(':', 1)[-1].strip() for line in text.split('\n') if ':' in line]
             model_text = ''.join(model_lines).replace(' ', '')  # Supprimer les espaces
-            if model_text.startswith(':'):
-                model_text = model_text[1:].strip()  # Enlever le ":" de début
-            if model_text and len(model_text) >= 4 and model_text != self.current_model:
-                # Vérifier et supprimer les tirets ou espaces au début
-                while model_text.startswith('-') or model_text.startswith(' '):
-                    model_text = model_text[1:].strip()
+
+            # Vérifier et supprimer les caractères spéciaux au début
+            while model_text and not model_text[0].isalnum():
+                model_text = model_text[1:].strip()
+
+            # Vérifier la validité du modèle de voiture
+            if model_text.lower() in valid_car_models:
                 print(f"Nouveau modèle détecté : {model_text}")
                 self.current_model = model_text
                 self.car_model_entry.delete(0, tk.END)
                 self.car_model_entry.insert(0, model_text)
             else:
-                print("Modèle inchangé ou non valide.")
+                if model_text not in self.unvalidated_models:
+                    self.unvalidated_models.append(model_text)
+                    self.unvalidated_listbox.insert(tk.END, model_text)
+                print("Modèle non validé, ajouté à la liste pour vérification.")
         
         elif capture_type == 'name':
             name_text = self.extract_name(text)
             if name_text.strip():
-                name_parts = name_text.split(' ', 1)
-                if len(name_parts) == 2:
-                    full_name = f"{name_parts[0]} {name_parts[1]}"
-                    if full_name != self.current_name:
-                        print(f"Nouveau nom détecté : {full_name}")
-                        self.current_name = full_name
-                        self.client_name_entry.delete(0, tk.END)
-                        self.client_name_entry.insert(0, full_name)
+                # Vérifier que le nom contient uniquement des lettres
+                if all(char.isalpha() or char.isspace() for char in name_text):
+                    name_parts = name_text.split(' ', 1)
+                    if len(name_parts) == 2:
+                        full_name = f"{name_parts[0]} {name_parts[1]}"
+                        if full_name != self.current_name:
+                            print(f"Nouveau nom détecté : {full_name}")
+                            self.current_name = full_name
+                            self.client_name_entry.delete(0, tk.END)
+                            self.client_name_entry.insert(0, full_name)
+                    else:
+                        print("Nom valide détecté mais non complet.")
                 else:
-                    print("Nom valide détecté mais non complet.")
+                    print("Nom non valide, contient des caractères non autorisés.")
             else:
                 print("Aucun nom valide détecté.")
 
@@ -263,11 +301,14 @@ def preprocess_image(img, capture_type):
     dim = (width, height)
     resized = cv2.resize(gray, dim, interpolation=cv2.INTER_LINEAR)
 
-    return resized
+    # Améliorer le contraste et la netteté
+    enhanced = ImageEnhance.Contrast(Image.fromarray(resized)).enhance(2.0)
+    enhanced = np.array(ImageEnhance.Sharpness(enhanced).enhance(2.0))
+
+    return enhanced
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = LicensePlateApp(root)
     root.mainloop()
-
 
