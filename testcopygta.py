@@ -12,6 +12,10 @@ import threading
 import time
 import requests
 from bs4 import BeautifulSoup
+import pyperclip  # Pour copier dans le presse-papier
+
+# URL de la page GTA Wiki contenant la liste des véhicules
+url = "https://gta.fandom.com/wiki/Vehicles_in_GTA_V"
 
 # Fonction pour trouver l'exécutable Tesseract
 def find_tesseract():
@@ -31,25 +35,28 @@ pytesseract.pytesseract.tesseract_cmd = find_tesseract()
 # Expression régulière pour détecter les numéros de plaque (exactement 8 caractères)
 plate_pattern = re.compile(r'\b[A-Z0-9]{8}\b')
 
-# Fonction pour récupérer les modèles de voitures GTA V
+# Fonction pour récupérer les modèles de voitures depuis GTA Wiki
 def get_gta_v_car_models():
-    url = "https://gta.fandom.com/wiki/Vehicles_in_GTA_V"
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
     
     car_models = set()
-    
-    for link in soup.find_all('a'):
-        if link.has_attr('href') and '/wiki/' in link['href']:
+
+    # Trouver tous les liens dans la page qui mènent à des pages de modèles de voitures
+    for link in soup.find_all('a', href=True):
+        if '/wiki/' in link['href']:
             car_model = link.text.strip().lower()
-            if car_model and car_model.isalpha():
+            if car_model and car_model.isalnum():
                 car_models.add(car_model)
     
     return list(car_models)
 
-# Liste des modèles de voitures valides
+# Charger la liste des modèles de voitures
 valid_car_models = get_gta_v_car_models()
-valid_car_models.append('gt63')  # Ajout du modèle personnalisé
+
+# Ajouter les modèles personnalisés non trouvés sur le site
+custom_models = ['gt63', 'gsts6504', 'sentinelsg4', 'greenwood', 'M3F80', 'club']
+valid_car_models.extend([model.lower() for model in custom_models])
 
 class LicensePlateApp:
     def __init__(self, master):
@@ -119,6 +126,7 @@ class LicensePlateApp:
 
         self.unvalidated_listbox = tk.Listbox(self.unvalidated_frame)
         self.unvalidated_listbox.grid(row=0, column=0, padx=5, pady=5)
+        self.unvalidated_listbox.bind('<Double-1>', self.copy_to_clipboard)
 
     def capture_screen(self):
         while True:
@@ -247,6 +255,11 @@ class LicensePlateApp:
             while model_text and not model_text[0].isalnum():
                 model_text = model_text[1:].strip()
 
+            # Validation de la longueur minimale (au moins 4 caractères)
+            if len(model_text) < 4:
+                print("Modèle non valide détecté, ignoré.")
+                return
+
             # Vérifier la validité du modèle de voiture
             if model_text.lower() in valid_car_models:
                 print(f"Nouveau modèle détecté : {model_text}")
@@ -288,6 +301,14 @@ class LicensePlateApp:
             if len(parts) > 1:
                 extracted_text.append(parts[1].strip())
         return ' '.join(extracted_text)
+
+    def copy_to_clipboard(self, event):
+        """Copier le texte sélectionné dans la liste des modèles non validés."""
+        selection = self.unvalidated_listbox.curselection()
+        if selection:
+            selected_text = self.unvalidated_listbox.get(selection[0])
+            pyperclip.copy(selected_text)
+            print(f"'{selected_text}' copié dans le presse-papier.")
 
 def preprocess_image(img, capture_type):
     """Prétraiter l'image pour améliorer la qualité de l'OCR."""
