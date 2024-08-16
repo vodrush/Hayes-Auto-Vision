@@ -12,6 +12,23 @@ import threading
 import time
 import requests
 from bs4 import BeautifulSoup
+import pyperclip  # Pour copier dans le presse-papier
+
+# Fonction pour charger le model_mapping depuis un fichier
+def load_model_mapping_from_file(filepath):
+    model_mapping = {}
+    try:
+        with open(filepath, 'r') as file:
+            for line in file:
+                if '=' in line:
+                    alias, full_name = line.strip().split('=', 1)
+                    model_mapping[alias.strip().lower()] = full_name.strip()
+    except FileNotFoundError:
+        print(f"Fichier {filepath} non trouvé.")
+    return model_mapping
+
+# Charger le model_mapping depuis le fichier modele.txt
+model_mapping = load_model_mapping_from_file('modele.txt')
 
 # Fonction pour trouver l'exécutable Tesseract
 def find_tesseract():
@@ -31,25 +48,30 @@ pytesseract.pytesseract.tesseract_cmd = find_tesseract()
 # Expression régulière pour détecter les numéros de plaque (exactement 8 caractères)
 plate_pattern = re.compile(r'\b[A-Z0-9]{8}\b')
 
-# Fonction pour récupérer les modèles de voitures GTA V
+# Définir l'URL de la page GTA Wiki
+url = "https://gta.fandom.com/wiki/Vehicles_in_GTA_V"
+
+# Fonction pour récupérer les modèles de voitures depuis GTA Wiki
 def get_gta_v_car_models():
-    url = "https://gta.fandom.com/wiki/Vehicles_in_GTA_V"
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
     
     car_models = set()
-    
-    for link in soup.find_all('a'):
-        if link.has_attr('href') and '/wiki/' in link['href']:
+
+    # Trouver tous les liens dans la page qui mènent à des pages de modèles de voitures
+    for link in soup.find_all('a', href=True):
+        if '/wiki/' in link['href']:
             car_model = link.text.strip().lower()
-            if car_model and car_model.isalpha():
+            if car_model and car_model.isalnum():
                 car_models.add(car_model)
     
     return list(car_models)
 
-# Liste des modèles de voitures valides
+# Charger la liste des modèles de voitures valides
 valid_car_models = get_gta_v_car_models()
-valid_car_models.append('gt63')  # Ajout du modèle personnalisé
+
+# Ajouter les modèles du model_mapping à la liste des modèles valides
+valid_car_models.extend([model.lower() for model in model_mapping.values()])
 
 class LicensePlateApp:
     def __init__(self, master):
@@ -119,6 +141,7 @@ class LicensePlateApp:
 
         self.unvalidated_listbox = tk.Listbox(self.unvalidated_frame)
         self.unvalidated_listbox.grid(row=0, column=0, padx=5, pady=5)
+        self.unvalidated_listbox.bind('<Double-1>', self.copy_to_clipboard)
 
     def capture_screen(self):
         while True:
@@ -169,7 +192,7 @@ class LicensePlateApp:
         if capture_type == 'plate':
             return (window.left + 30, window.top + 810, window.left + 180, window.top + 850)
         elif capture_type == 'model':
-            return (window.left + 125, window.top + 20, window.left + 340, window.top + 60)
+            return (window.left + 135, window.top + 20, window.left + 340, window.top + 60)
         elif capture_type == 'name':
             return (window.left + 1600, window.top + 110, window.left + 1700, window.top + 135)
         return None
@@ -239,24 +262,19 @@ class LicensePlateApp:
                 print("Aucune plaque valide détectée.")
         
         elif capture_type == 'model':
-            # Extraire le texte après les deux-points pour le modèle
-            model_lines = [line.split(':', 1)[-1].strip() for line in text.split('\n') if ':' in line]
-            model_text = ''.join(model_lines).replace(' ', '')  # Supprimer les espaces
+            # Correspondance du modèle
+            matched_model = match_model(text)
+            print(f"Modèle détecté après correspondance : {matched_model}")
 
-            # Vérifier et supprimer les caractères spéciaux au début
-            while model_text and not model_text[0].isalnum():
-                model_text = model_text[1:].strip()
-
-            # Vérifier la validité du modèle de voiture
-            if model_text.lower() in valid_car_models:
-                print(f"Nouveau modèle détecté : {model_text}")
-                self.current_model = model_text
+            # Vérification et ajout à la liste des non-validés si nécessaire
+            if matched_model.lower() in valid_car_models:
+                self.current_model = matched_model
                 self.car_model_entry.delete(0, tk.END)
-                self.car_model_entry.insert(0, model_text)
+                self.car_model_entry.insert(0, matched_model)
             else:
-                if model_text not in self.unvalidated_models:
-                    self.unvalidated_models.append(model_text)
-                    self.unvalidated_listbox.insert(tk.END, model_text)
+                if matched_model not in self.unvalidated_models:
+                    self.unvalidated_models.append(matched_model)
+                    self.unvalidated_listbox.insert(tk.END, matched_model)
                 print("Modèle non validé, ajouté à la liste pour vérification.")
         
         elif capture_type == 'name':
@@ -289,6 +307,14 @@ class LicensePlateApp:
                 extracted_text.append(parts[1].strip())
         return ' '.join(extracted_text)
 
+    def copy_to_clipboard(self, event):
+        """Copier le texte sélectionné dans la liste des modèles non validés."""
+        selection = self.unvalidated_listbox.curselection()
+        if selection:
+            selected_text = self.unvalidated_listbox.get(selection[0])
+            pyperclip.copy(selected_text)
+            print(f"'{selected_text}' copié dans le presse-papier.")
+
 def preprocess_image(img, capture_type):
     """Prétraiter l'image pour améliorer la qualité de l'OCR."""
     # Convertir en niveaux de gris
@@ -306,6 +332,15 @@ def preprocess_image(img, capture_type):
     enhanced = np.array(ImageEnhance.Sharpness(enhanced).enhance(2.0))
 
     return enhanced
+
+def match_model(text):
+    """Correspondance du texte OCR avec le modèle complet."""
+    simplified_text = re.sub(r'\s+', '', text.lower())
+
+    for alias, full_name in model_mapping.items():
+        if alias in simplified_text:
+            return full_name
+    return text
 
 if __name__ == "__main__":
     root = tk.Tk()
