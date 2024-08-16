@@ -61,7 +61,12 @@ def get_gta_v_car_models():
     # Trouver tous les liens dans la page qui mènent à des pages de modèles de voitures
     for link in soup.find_all('a', href=True):
         if '/wiki/' in link['href']:
+
+    # Trouver tous les liens dans la page qui mènent à des pages de modèles de voitures
+    for link in soup.find_all('a', href=True):
+        if '/wiki/' in link['href']:
             car_model = link.text.strip().lower()
+            if car_model and car_model.isalnum():
             if car_model and car_model.isalnum():
                 car_models.add(car_model)
     
@@ -141,6 +146,7 @@ class LicensePlateApp:
 
         self.unvalidated_listbox = tk.Listbox(self.unvalidated_frame)
         self.unvalidated_listbox.grid(row=0, column=0, padx=5, pady=5)
+        self.unvalidated_listbox.bind('<Double-1>', self.copy_to_clipboard)
         self.unvalidated_listbox.bind('<Double-1>', self.copy_to_clipboard)
 
     def capture_screen(self):
@@ -306,6 +312,14 @@ class LicensePlateApp:
             if len(parts) > 1:
                 extracted_text.append(parts[1].strip())
         return ' '.join(extracted_text)
+
+    def copy_to_clipboard(self, event):
+        """Copier le texte sélectionné dans la liste des modèles non validés."""
+        selection = self.unvalidated_listbox.curselection()
+        if selection:
+            selected_text = self.unvalidated_listbox.get(selection[0])
+            pyperclip.copy(selected_text)
+            print(f"'{selected_text}' copié dans le presse-papier.")
 
     def copy_to_clipboard(self, event):
         """Copier le texte sélectionné dans la liste des modèles non validés."""

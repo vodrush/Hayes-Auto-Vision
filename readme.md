@@ -91,7 +91,11 @@ Assurez-vous que tesseract.exe et le dossier tessdata sont inclus dans le réper
 Contribution
 Les contributions sont les bienvenues ! Veuillez soumettre une pull request ou ouvrir une issue pour discuter des modifications que vous souhaitez apporter.
 
-Acknowledgements
+Voici comment sa fonctionne : 
+
+https://www.youtube.com/watch?v=YJjuHT-Cc3E
+
+
 Merci à toutes les bibliothèques open source et aux contributeurs qui ont rendu ce projet possible.
 
 Auteur : Vodrush
